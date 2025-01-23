@@ -1,0 +1,158 @@
+-- Analyzed PEDAL's Utilization Data using SQL
+
+-- Which three instructors have taught the most classes from 2023-2024
+SELECT 
+    Instructors,
+    COUNT(Instructors) AS times_taught
+FROM class_utilization
+GROUP BY Instructors
+ORDER BY COUNT(Instructors) DESC
+LIMIT 3
+;
+
+-- Which spin class had the most utilization in 2023 and 2024
+WITH _2023_check_ins AS (
+    SELECT
+        ClassDate,
+        ClassDayofWeek,
+        Instructors,
+        CLassType,
+        CheckedInReservations,
+        MAX(Utilization) AS Utilization
+    FROM class_utilization
+    WHERE ClassDate LIKE('2023%') 
+    AND ClassType LIKE('SPIN%')
+    GROUP BY ClassDate, ClassDayofWeek, Instructors, CLassType
+    ORDER BY  MAX(Utilization) DESC
+    LIMIT 1
+),
+ _2024_check_ins AS (
+     SELECT
+        ClassDate,
+        ClassDayofWeek,
+        Instructors,
+        CLassType,
+        CheckedInReservations,
+        MAX(Utilization) AS Utilization
+    FROM class_utilization
+    WHERE ClassDate LIKE('2024%') 
+    AND ClassType LIKE('SPIN%')
+    GROUP BY ClassDate, ClassDayofWeek, Instructors, CLassType
+    ORDER BY  MAX(Utilization) DESC
+    LIMIT 1
+)
+SELECT 
+    ClassDate,
+    ClassDayofWeek,
+    Instructors,
+    CLassType,
+    CheckedInReservations,
+    MAX(Utilization) AS Utilization
+FROM _2023_check_ins
+
+UNION ALL
+
+SELECT 
+    ClassDate,
+    ClassDayofWeek,
+    Instructors,
+    CLassType,
+    CheckedInReservations,
+    MAX(Utilization) AS Utilization
+FROM _2024_check_ins
+;
+
+-- What was the average utilization in 2023 compared to 2024
+WITH avg_utilization_2023 AS (
+    SELECT 
+        '2023' AS Year,
+        ROUND(AVG(Utilization), 2) AS avg_utilization_2023
+    FROM class_utilization
+    WHERE ClassDate LIKE('2023%')
+    AND ClassType = 'SPIN'
+),
+avg_utilization_2024 AS (
+    SELECT 
+        '2024' AS Year,
+        ROUND(AVG(Utilization), 2) AS avg_utilization_2024
+    FROM class_utilization
+    WHERE ClassDate LIKE('2024%')
+    AND ClassType = 'SPIN'
+)
+SELECT 
+   2023 AS Year1,
+   u_2023.avg_utilization_2023,
+   2024 AS Year2,
+   u_2024.avg_utilization_2024,
+   ROUND(
+   (u_2024.avg_utilization_2024 -  u_2023.avg_utilization_2023) / 
+    u_2023.avg_utilization_2023 * 100, 2) AS percentage_difference
+FROM avg_utilization_2023 u_2023
+CROSS JOIN avg_utilization_2024 u_2024
+;
+
+-- What was the average utilization for each day in 2023
+UPDATE class_utilization
+SET ClassDayofWeek = TRIM(ClassDayofWeek);
+
+SELECT 
+    ClassDayofWeek,
+    ROUND(AVG(Utilization)) AS avg_check_ins
+FROM class_utilization
+WHERE ClassDate LIKE '2023%'
+AND ClassType = 'SPIN'
+GROUP BY ClassDayofWeek
+ORDER BY 
+    CASE 
+        WHEN ClassDayofWeek = 'Monday' THEN 1
+        WHEN ClassDayofWeek = 'Tuesday' THEN 2
+        WHEN ClassDayofWeek = 'Wednesday' THEN 3
+        WHEN ClassDayofWeek = 'Thursday' THEN 4
+        WHEN ClassDayofWeek = 'Friday' THEN 5
+        WHEN ClassDayofWeek = 'Saturday' THEN 6
+        WHEN ClassDayofWeek = 'Sunday' THEN 7
+    END
+;
+
+-- What is the average utilization for each day in 2024
+SELECT 
+    ClassDayofWeek,
+    ROUND(AVG(Utilization)) AS avg_check_ins
+FROM class_utilization
+WHERE ClassDate LIKE '2024%'
+AND ClassType = 'SPIN'
+GROUP BY ClassDayofWeek
+ORDER BY 
+    CASE 
+        WHEN ClassDayofWeek = 'Monday' THEN 1
+        WHEN ClassDayofWeek = 'Tuesday' THEN 2
+        WHEN ClassDayofWeek = 'Wednesday' THEN 3
+        WHEN ClassDayofWeek = 'Thursday' THEN 4
+        WHEN ClassDayofWeek = 'Friday' THEN 5
+        WHEN ClassDayofWeek = 'Saturday' THEN 6
+        WHEN ClassDayofWeek = 'Sunday' THEN 7
+    END
+;
+
+-- How many checked-in in 2023 compared to 2024
+WITH _2023_check_ins AS (
+    SELECT 
+        SUM(CheckedInReservations) AS total_people_2023
+    FROM class_utilization
+    WHERE ClassDate LIKE('2023%') 
+),
+_2024_check_ins AS (
+    SELECT 
+        SUM(CheckedInReservations) AS total_people_2024
+    FROM class_utilization
+    WHERE ClassDate LIKE('2024%')
+)
+SELECT 
+    u_23.total_people_2023 AS total_people_2023,
+    u_24.total_people_2024 AS total_people_2024,
+    ROUND(
+        (CAST(u_24.total_people_2024 AS FLOAT) - CAST(u_23.total_people_2023 AS FLOAT)) / 
+        CAST(u_23.total_people_2023 AS FLOAT) * 100, 2
+    ) AS percentage_difference
+FROM _2023_check_ins AS u_23
+CROSS JOIN _2024_check_ins AS u_24
